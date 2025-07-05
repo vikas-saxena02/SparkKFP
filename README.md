@@ -11,11 +11,12 @@ brew install --cask docker
 ```
 
 My setup is based on Mac so I had to ensure that my OS does not detect it as a malware. Tovaoid that, I had to do the follwoing
- - remove quarentine flag ```xattr -d com.apple.quarantine /Applications/Docker.app```
+ - remove quarentine flag 
+```xattr -d com.apple.quarantine /Applications/Docker.app```
  - reboot my machine
 ## Setup Kubeflow Pipelines
 Special Thanks here to Julius Von Kahout for providing me exact instructions on kubeflow slack to install kubeflow piplines locally. 
-The commands are docuemnted in Kubeflow Manifest repo here[https://github.com/kubeflow/manifests/blob/master/applications/pipeline/upstream/README.md]. But for simplicit, I have included them below:
+The commands are docuemnted in Kubeflow Manifest repo [here](https://github.com/kubeflow/manifests/blob/master/applications/pipeline/upstream/README.md). But since the path may be chnage in future, I have included them below:
 ```
 cd <path to clone of kubeflow manifests repo>/manifests/application/pipeline/upstream/
 KFP_ENV=platform-agnostic
