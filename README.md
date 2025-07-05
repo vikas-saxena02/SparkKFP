@@ -14,6 +14,7 @@ My setup is based on Mac so I had to ensure that my OS does not detect it as a m
  - remove quarentine flag 
 ```xattr -d com.apple.quarantine /Applications/Docker.app```
  - reboot my machine
+
 ## Setup Kubeflow Pipelines
 Special Thanks here to Julius Von Kahout for providing me exact instructions on kubeflow slack to install kubeflow piplines locally. 
 The commands are docuemnted in Kubeflow Manifest repo [here](https://github.com/kubeflow/manifests/blob/master/applications/pipeline/upstream/README.md). But since the path may be chnage in future, I have included them below:
@@ -27,3 +28,6 @@ kubectl wait pods -l application-crd-id=kubeflow-pipelines -n kubeflow --for con
 kubectl port-forward -n kubeflow svc/ml-pipeline-ui 8080:80
 ```
 Now you can access Kubeflow Pipelines UI in your browser by http://localhost:8080.
+
+## Install Spark Operator
+The instructions are well documented [here](https://www.kubeflow.org/docs/components/spark-operator/getting-started/) 
