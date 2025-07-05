@@ -39,19 +39,19 @@ pip install kfp==1.8.22
 ```
 
 # Getting Ready
-## Compile the pipline
+## Compile the pipeline
 ```
 python spark_pi_pipeline.py
 ```
 This will create a new yaml file by the name `spark_pi_pipeline.yaml`
 
 ## Submit the Pipeline
-You can submit he pipeline/workflow either using the UI or through CLI.
+You can submit the pipeline/workflow either using the UI or through CLI.
 The comamnd I used to check was 
 ```
 kubectl get sparkapplications -n default
 ```
-Alternatively you can watch the status of the job by adding -w switch as shown below
+Alternatively you can watch the status of the job by adding `-w` switch as shown below
 ```
 kubectl get sparkapplications -n default -w
 ```
