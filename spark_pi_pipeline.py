@@ -1,39 +1,31 @@
-from kfp import dsl, compiler
-from kfp.dsl import Output, Artifact, component
+from kfp import dsl
+from kfp import compiler
 
-
-# Step 1: Submit SparkApplication
-@component(
-    base_image="vikassaxena02/vikas-kfpv2-python310-kubectl-image:0.1"
-)
-def submit_spark_application():
-    import subprocess
-
-    spark_app_yaml = """
-apiVersion: sparkoperator.k8s.io/v1beta2
+SPARK_YAML = """apiVersion: sparkoperator.k8s.io/v1beta2
 kind: SparkApplication
 metadata:
   name: spark-pi
   namespace: default
 spec:
-  timeToLiveSeconds: 600
   type: Scala
   mode: cluster
   image: docker.io/library/spark:4.0.0
   imagePullPolicy: IfNotPresent
   mainClass: org.apache.spark.examples.SparkPi
   mainApplicationFile: local:///opt/spark/examples/jars/spark-examples.jar
-  arguments: ["5000"]
-  sparkVersion: "4.0.0"
+  arguments:
+  - "5000"
+  sparkVersion: 4.0.0
   driver:
     labels:
-      version: "4.0.0"
+      version: 4.0.0
     cores: 1
-    memory: "512m"
+    memory: 512m
     serviceAccount: spark-operator-spark
     securityContext:
       capabilities:
-        drop: ["ALL"]
+        drop:
+        - ALL
       runAsGroup: 185
       runAsUser: 185
       runAsNonRoot: true
@@ -42,13 +34,14 @@ spec:
         type: RuntimeDefault
   executor:
     labels:
-      version: "4.0.0"
+      version: 4.0.0
     instances: 1
     cores: 1
-    memory: "512m"
+    memory: 512m
     securityContext:
       capabilities:
-        drop: ["ALL"]
+        drop:
+        - ALL
       runAsGroup: 185
       runAsUser: 185
       runAsNonRoot: true
@@ -57,109 +50,30 @@ spec:
         type: RuntimeDefault
 """
 
-    with open("/tmp/spark-app.yaml", "w") as f:
-        f.write(spark_app_yaml)
-
-    print("Applying SparkApplication...")
-    subprocess.run(
-        ["kubectl", "apply", "-f", "/tmp/spark-app.yaml"],
-        check=True,
-    )
-
-    print("Waiting for SparkApplication to complete...")
-    subprocess.run(
-        [
-            "kubectl",
-            "wait",
-            "--for=condition=applicationState.state=COMPLETED",
-            "sparkapplication/spark-pi",
-            "-n",
-            "default",
-            "--timeout=900s",
-        ],
-        check=True,
-    )
-
-
-# Step 2: Get Driver Logs
-@component(
-    base_image="vikassaxena02/vikas-kfpv2-python310-kubectl-image:0.1"
+@dsl.component(
+    base_image="vikassaxena02/vikas-kfpv2-python310-kubectl-nokfp-image:0.3"
 )
-def get_driver_logs(
-    logs: Output[Artifact],
-):
+def submit_spark_application(yaml_spec: str):
     import subprocess
+    with open("/tmp/spark.yaml", "w") as f:
+        f.write(yaml_spec)
+    subprocess.run(["kubectl", "apply", "-f", "/tmp/spark.yaml"], check=True)
+   # return dsl.ContainerSpec(
+   #     command=["sh", "-c"],
+   #     args=[
+   #         # Save the YAML to a file and apply it
+   #         'echo "$0" > /tmp/spark.yaml && kubectl apply -f /tmp/spark.yaml',
+   #         yaml_spec
+   #     ]
+   # )
 
-    try:
-        result = subprocess.run(
-            [
-                "kubectl",
-                "get",
-                "sparkapplication",
-                "spark-pi",
-                "-n",
-                "default",
-                "-o",
-                "jsonpath={.status.driverInfo.podName}",
-            ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            check=False,
-        )
-        driver_pod = result.stdout.strip()
-
-        if not driver_pod:
-            with open(logs.path, "w") as f:
-                f.write("No SparkApplication or driver pod found.")
-            return
-
-        print(f"Driver pod is: {driver_pod}")
-
-        # Wait for driver pod readiness (best-effort)
-        subprocess.run(
-            [
-                "kubectl",
-                "wait",
-                "--for=condition=Ready",
-                f"pod/{driver_pod}",
-                "-n",
-                "default",
-                "--timeout=300s",
-            ],
-            check=False,
-        )
-
-        # Fetch logs
-        logs_result = subprocess.run(
-            ["kubectl", "logs", driver_pod, "-n", "default"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            check=False,
-        )
-
-        logs_text = logs_result.stdout or "Could not get logs."
-        with open(logs.path, "w") as f:
-            f.write(logs_text)
-
-    except Exception as e:
-        with open(logs.path, "w") as f:
-            f.write(f"Error getting logs: {e}")
-
-
-# Pipeline definition
 @dsl.pipeline(
-    name="spark-pi-pipeline-v2",
-    description="Spark Pi example pipeline with log retrieval in KFP v2"
+    name="Spark Pi Pipeline KFP v2",
+    description="Submit SparkApplication via kubectl"
 )
 def spark_pi_pipeline():
-    submit_task = submit_spark_application().set_caching_options(False)
-    log_task = get_driver_logs().set_caching_options(False)
-    log_task.after(submit_task)
+    submit_spark_application(yaml_spec=SPARK_YAML)
 
-
-# Compile the pipeline
 if __name__ == "__main__":
     compiler.Compiler().compile(
         pipeline_func=spark_pi_pipeline,
