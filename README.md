@@ -66,7 +66,7 @@ kubectl auth can-i create sparkapplications.sparkoperator.k8s.io --as=system:ser
 If the output of above command is `no`, then we need to grant the neccessary permissions. This can be done by applying the following configs
 ```
 kubectl apply -f optional/spark-operator-customrole.yaml
-kubectl apply -f optionalspark-operator-rolebinding.yaml
+kubectl apply -f optional/spark-operator-rolebinding.yaml
 ```
 
 This will give `pipeline-runner` ServiceAccount the necessary permissions to submit the spark job
