@@ -16,6 +16,7 @@ spec:
   arguments:
   - "5000"
   sparkVersion: 4.0.0
+  timeToLiveSeconds: 600
   driver:
     labels:
       version: 4.0.0
@@ -51,28 +52,41 @@ spec:
 """
 
 @dsl.component(
-    base_image="vikassaxena02/vikas-kfpv2-python310-kubectl-nokfp-image:0.3"
+    base_image="vikassaxena02/vikas-kfpv2-python310-kubectl-nokfp-image:0.4"
 )
 def submit_spark_application(yaml_spec: str):
+    import yaml
+    import os
     import subprocess
+
+    # Retrieve suffix from KFP_POD_NAME
+    kfp_pod_name = os.environ.get("KFP_POD_NAME", "nopod")
+    parts = kfp_pod_name.split("-")
+    # IMPORTANT - adjust the value for suffix if you have no - in name field intemplate yaml or you have more than 1 - there 
+    suffix = parts[5] if len(parts) >= 5 else "nosuffix"
+    print(f"Using suffix derived from KFP_POD_NAME: {suffix}")
+
+    # Load YAML into dict
+    spec = yaml.safe_load(yaml_spec)
+
+    # Append workflow UID to metadata.name
+    spec["metadata"]["name"] += f"-{suffix}"
+
+    # Write updated YAML back to file
     with open("/tmp/spark.yaml", "w") as f:
-        f.write(yaml_spec)
+        yaml.dump(spec, f)
+
+    # Use kubectl apply to create/update
     subprocess.run(["kubectl", "apply", "-f", "/tmp/spark.yaml"], check=True)
-   # return dsl.ContainerSpec(
-   #     command=["sh", "-c"],
-   #     args=[
-   #         # Save the YAML to a file and apply it
-   #         'echo "$0" > /tmp/spark.yaml && kubectl apply -f /tmp/spark.yaml',
-   #         yaml_spec
-   #     ]
-   # )
+
 
 @dsl.pipeline(
     name="Spark Pi Pipeline KFP v2",
-    description="Submit SparkApplication via kubectl"
+    description="Submit SparkApplication via kubectl with TTL and unique naming"
 )
 def spark_pi_pipeline():
     submit_spark_application(yaml_spec=SPARK_YAML)
+
 
 if __name__ == "__main__":
     compiler.Compiler().compile(
