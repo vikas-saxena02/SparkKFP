@@ -54,7 +54,7 @@ spec:
 @dsl.component(
     base_image="vikassaxena02/vikas-kfpv2-python310-kubectl-nokfp-image:0.4"
 )
-def submit_spark_application(yaml_spec: str):
+def submit_spark_application(yaml_spec: str) -> str:
     import yaml
     import os
     import subprocess
@@ -79,17 +79,95 @@ def submit_spark_application(yaml_spec: str):
     # Use kubectl apply to create/update
     subprocess.run(["kubectl", "apply", "-f", "/tmp/spark.yaml"], check=True)
 
+    # Return the actual SparkApplication name
+    return spec["metadata"]["name"]
+
+@dsl.component(
+    base_image="vikassaxena02/vikas-kfpv2-python310-kubectl-nokfp-image:0.4"
+)
+def fetch_driver_logs(
+    spark_app_name: str,
+    spark_driver_logs: dsl.Output[dsl.Artifact],
+):
+    import subprocess
+    import time
+    import json
+
+    # Wait for SparkApplication to complete
+    print("Waiting for SparkApplication to complete...")
+    for attempt in range(60):
+        try:
+            get_status_cmd = [
+                "kubectl", "get", "sparkapplication", spark_app_name,
+                "-n", "default", "-o", "json"
+            ]
+            output = subprocess.check_output(get_status_cmd, text=True)
+            status_json = json.loads(output)
+            app_state = status_json.get("status", {}).get("applicationState", {}).get("state", "")
+            print(f"Attempt {attempt+1}: SparkApplication state: {app_state}")
+            if app_state in ["COMPLETED", "FAILED"]:
+                break
+        except Exception as e:
+            print("Error checking SparkApplication status:", str(e))
+        time.sleep(10)
+    else:
+        raise RuntimeError("Timed out waiting for SparkApplication to complete.")
+
+    # Now fetch the driver pod name
+    pod_name = ""
+    for i in range(6):
+        try:
+            pod_name_cmd = [
+                "kubectl",
+                "get",
+                "pods",
+                "-n", "default",
+                "-l", f"spark-role=driver,spark-app-name={spark_app_name}",
+                "-o", "jsonpath={.items[0].metadata.name}"
+            ]
+            pod_name = subprocess.check_output(pod_name_cmd, text=True).strip()
+            if pod_name:
+                print(f"Found driver pod: {pod_name}")
+                break
+        except subprocess.CalledProcessError as e:
+            print(f"Attempt {i+1}: Failed to find driver pod, retrying...")
+        time.sleep(5)
+    else:
+        raise RuntimeError("Failed to locate driver pod for SparkApplication.")
+
+    # Print the driver pod name
+    print("Driver pod:", pod_name)
+
+    # Get logs
+    logs = subprocess.check_output(
+        ["kubectl", "logs", "-n", "default", pod_name],
+        text=True
+    )
+
+    # Write logs to artifact
+    with open(spark_driver_logs.path, "w") as f:
+        f.write(logs)
+
+    print("Driver logs saved to:", spark_driver_logs.path)
 
 @dsl.pipeline(
     name="Spark Pi Pipeline KFP v2",
-    description="Submit SparkApplication via kubectl with TTL and unique naming"
+    description="Submit SparkApplication and Fetch Driver Logs"
 )
 def spark_pi_pipeline():
-    submit_spark_application(yaml_spec=SPARK_YAML)
+    submit_task = submit_spark_application(yaml_spec=SPARK_YAML)
+    submit_task.set_caching_options(False)
 
+    fetch_driver_logs_task = fetch_driver_logs(spark_app_name=submit_task.output)
+    fetch_driver_logs_task.set_caching_options(False)
 
 if __name__ == "__main__":
+    import kfp
+    from kfp import compiler
+
+    pipeline_file = "spark_pi_pipeline.yaml"
     compiler.Compiler().compile(
         pipeline_func=spark_pi_pipeline,
-        package_path="spark_pi_pipeline.yaml"
+        package_path=pipeline_file
     )
+
