@@ -1,5 +1,6 @@
-*.class
 *.log
+.DS_Store
+.Trash
 spark_pi_pipeline.yaml
 __pycache__
 
