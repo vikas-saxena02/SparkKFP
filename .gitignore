@@ -3,4 +3,6 @@
 .Trash
 spark_pi_pipeline.yaml
 __pycache__
+
+# this is just my local python venv so dont worry about it
 kfp-env/
