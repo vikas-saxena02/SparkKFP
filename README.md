@@ -1,7 +1,14 @@
 # SparkKFP
 This repo has bare minimum code to run a SparkPipeline on Kubeflow through Kubeflow Pipelines and the spark pipelines run in `default` namespace
 Please note that this repo uses an old version of KFP SDK to use `ResourceOp` which is deprecated in the KFP SDK v2 onwards.
-The code in the repo has been tested on a local  cluster running on `kind` that runs both `Kubeflow Piplines` and `Kubeflow SparkOperator `
+The code in the repo has been tested on a local  cluster running on `kind` that runs both `Kubeflow Piplines` and `Kubeflow SparkOperator`
+
+## Tools and their versions
+- Kind version 0.20.0 running Kubernetes 1.32.0
+- SparkOperator v2.2.1
+- Kubeflow Pipelines v1.10 branch in manifest repo 
+- KFP SDK – v2.5.0
+
 
 # Prereqisites
 ## Setup a kubernetes cluster
@@ -35,7 +42,7 @@ The instructions are well documented [here](https://www.kubeflow.org/docs/compon
 ## Install KFP SDK
 We are using older version of KFP installed using following command
 ```
-pip install kfp==1.8.22
+pip install kfp==2.5.0
 ```
 
 # Getting Ready
